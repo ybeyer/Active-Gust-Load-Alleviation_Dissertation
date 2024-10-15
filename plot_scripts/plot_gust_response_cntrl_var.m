@@ -1,7 +1,7 @@
 clear all;
 
 % add folders to path
-addPath();
+is_tigl_installed = addPath();
 
 is_tikz_export_desired = false;
 
@@ -16,8 +16,12 @@ fp_spec.EAS         = 177; % m/s
 [Ma,~] = altEas2MaTas( fp_spec.Altitude, fp_spec.EAS );
 
 % aircraft parameters
-[aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', false, 'Mach', Ma, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true, 'ControlsMainFile', 'wingControls_params_mainTefRedCm' );
-
+if is_tigl_installed
+    [aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', false, 'Mach', Ma, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true, 'ControlsMainFile', 'wingControls_params_mainTefRedCm' );
+else
+    load('data/aircraft_structure.mat');
+    wingSetCustomActuatorPath(aircraft.wing_main);
+end
 % environment parameters
 envir = envirLoadParams('envir_params_default');
 
@@ -65,7 +69,7 @@ simout4={};
 simout5={};
 simout6={};
 
-%%
+%% Run simulations
 
 gla_indi = glaIndiCreate( aircraft, fp_spec );
 
@@ -76,6 +80,8 @@ aircraft.actuators.LAD.defl_rate_min = -100;
 T_delay = 0.02;
 
 tic;
+open(model);
+set_param(model,'SimulationCommand','update');
 set_param(model,"FastRestart","on");
 
 for i = 1:2
@@ -119,11 +125,12 @@ end
 set_param(model,"FastRestart","off");
 toc;
 
-%%
+%% Plot results
 Legend = {'Open loop','$a_z$, $\eta_1$, $\eta_7$','$a_z$, $\eta_1$','$a_z$','$\eta_1$','$\eta_1$, $\eta_7$'};
 ymax = 3.25;
 ymin = -1;
 for i = 1:2
+    % Relative WRBM
     figure
     plotGustRespCntrlVar({simout_open_loop,simout1{i},simout2{i},simout3{i},simout4{i},simout5{i}},'WRBM',Legend);
     ylim([ymin,ymax])
@@ -131,13 +138,15 @@ for i = 1:2
         writeTikz(['gust_response_cntrl_var_wrbm_',num2str(i)]);
     end
 
+    % Load factor
     figure
     plotGustRespCntrlVar({simout_open_loop,simout1{i},simout2{i},simout3{i},simout4{i},simout5{i}},'LoadFactor');
     ylim([ymin,ymax])
     if is_tikz_export_desired
         writeTikz(['gust_response_cntrl_var_acc_',num2str(i)]);
     end
-     
+    
+    % Relative deflection of 1st bending mode
     figure
     plotGustRespCntrlVar({simout_open_loop,simout1{i},simout2{i},simout3{i},simout4{i},simout5{i}},'eta1');
     ylim([ymin,ymax])
@@ -145,6 +154,7 @@ for i = 1:2
         writeTikz(['gust_response_cntrl_var_eta1_',num2str(i)]);
     end
     
+    % Relative deflection of 2nd bending mode
     figure
     plotGustRespCntrlVar({simout_open_loop,simout1{i},simout2{i},simout3{i},simout4{i},simout5{i}},'eta7');
     ylim([ymin,ymax])
@@ -152,6 +162,7 @@ for i = 1:2
         writeTikz(['gust_response_cntrl_var_eta7_',num2str(i)]);
     end
     
+    % Control inputs
     figure
     plotGustRespCntrlVar({simout1{i}},'u');
     if is_tikz_export_desired
@@ -179,7 +190,7 @@ for i = 1:2
     end
 end
 
-%%
+%% Plot function
 function [] = plotGustRespCntrlVar(simout_cell,var_name,Legend)
     is_legend = false;
     if nargin>2
@@ -227,7 +238,7 @@ function [] = plotGustRespCntrlVar(simout_cell,var_name,Legend)
     end
 end
 
-%%
+%% Export figure to TikZ function
 function [] = writeTikz(filename,num_cols)
     if nargin<2
         num_cols = 1;
@@ -239,3 +250,4 @@ function [] = writeTikz(filename,num_cols)
     filename = exportFilename([filename,'.tex']);
     matlab2tikz(filename,'width',tikzwidth,'height',tikzheight,'extraCode',tikzfontsize,'extraAxisOptions',extra_axis_options);
 end
+

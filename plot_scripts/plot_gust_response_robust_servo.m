@@ -1,7 +1,7 @@
 clear all;
 
 % add folders to path
-addPath();
+is_tigl_installed = addPath();
 
 is_tikz_export_desired = false;
 
@@ -16,7 +16,12 @@ fp_spec.EAS         = 177; % m/s
 [Ma,~] = altEas2MaTas( fp_spec.Altitude, fp_spec.EAS );
 
 % aircraft parameters
-[aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', false, 'Mach', Ma, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true, 'ControlsMainFile', 'wingControls_params_mainTefRedCm' );
+if is_tigl_installed
+    [aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', false, 'Mach', Ma, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true, 'ControlsMainFile', 'wingControls_params_mainTefRedCm' );
+else
+    load('data/aircraft_structure.mat');
+    wingSetCustomActuatorPath(aircraft.wing_main);
+end
 
 % environment parameters
 envir = envirLoadParams('envir_params_default');
@@ -64,13 +69,7 @@ gla_indi = glaIndiCreate( aircraft, fp_spec, 'SensOmega', omega_sens, ...
     'ModeControlIdx', [1,7], 'WeightModes', [1,1e-3] );
 gla_indi.ca.W_u = eye(length(gla_indi.ca.W_u));
 
-% % Paper
-% gla_indi.ca.W_v(1,1) = 2.5e-3;
-% gla_indi.ca.gamma = 100;
-% gla_indi.ca.W_v(3,3) = 1e-9;
-
-simout = {};
-
+simout = {};set_param(model,'SimulationCommand','update');
 set_param(model,"FastRestart","on");
 
 aircraft.actuators.LAD.omega = aircraft.actuators.LAD.omega * 2;
@@ -90,7 +89,7 @@ simout{5} = simGust(gust_grad_dist,time,is_gla_enabled,is_failure);
 
 set_param(model,"FastRestart","off");
 
-%% Plot results 1
+%% Plot relative WRBM over time
 ds = 5;
 fig1=figure;
 hold on
@@ -107,7 +106,7 @@ ylim([0.5,2])
 
 legend(Legend{:},'location','northeast','interpreter','latex');
 
-%% Plot results 2
+%% Plot load factor over time
 ds = 5;
 Legend = {};
 fig2=figure;
@@ -145,3 +144,4 @@ if is_tikz_export_desired
     filename = exportFilename('gust_response_servo_acc.tex');
     matlab2tikz(filename,'width',tikzwidth,'height',tikzheight,'extraCode',tikzfontsize,'extraAxisOptions',extra_axis_options);
 end
+

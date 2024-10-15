@@ -1,5 +1,3 @@
-
-% add folders to path
 addPath();
 
 is_tikz_export_desired = false;
@@ -55,3 +53,4 @@ if is_tikz_export_desired
     filename = exportFilename('gust_definition.tex');
     matlab2tikz(filename,'width',tikzwidth,'height',tikzheight,'extraCode',tikzfontsize,'extraAxisOptions',extra_axis_options);
 end
+

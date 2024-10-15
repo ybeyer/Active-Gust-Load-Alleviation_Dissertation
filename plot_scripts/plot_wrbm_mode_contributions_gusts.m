@@ -1,7 +1,7 @@
 clear all;
 
 % add folders to path
-addPath();
+is_tigl_installed = addPath();
 
 is_tikz_export_desired = false;
 
@@ -16,7 +16,12 @@ fp_spec.EAS         = 177; % m/s
 [Ma,~] = altEas2MaTas( fp_spec.Altitude, fp_spec.EAS );
 
 % aircraft parameters
-[aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', false, 'Mach', Ma, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true, 'ControlsMainFile', 'wingControls_params_mainTefRedCm' );
+if is_tigl_installed
+    [aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', false, 'Mach', Ma, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true, 'ControlsMainFile', 'wingControls_params_mainTefRedCm' );
+else
+    load('data/aircraft_structure.mat');
+    wingSetCustomActuatorPath(aircraft.wing_main);
+end
 
 % environment parameters
 envir = envirLoadParams('envir_params_default');
@@ -37,7 +42,7 @@ tp_indi = tpInitController(tp_indi,gla_indi);
 ic = tpGenerateIC(tp_indi);
 
 
-%% WRBM contributions for specified trim point
+%% Run simulations
 
 simout = {};
 
@@ -52,7 +57,7 @@ for i = 1:length(gust_grad_dist_vec)
     simout{i} = simGust(gust_grad_dist,time,is_gla_enabled,is_failure);
 end
 
-%% Plot
+%% Plot max. relative WRBM contribution of modes over gust gradient distance
 
 figure
 
@@ -65,14 +70,12 @@ Legend = {};
 WRBM_0 = T_wrbm*simout{1}.eta.Data(1,7:end)';
 for i = 1:length(simout)
     [WRBM_max(i),idx_max] = max(T_wrbm*simout{i}.eta.Data(:,7:end)');
-%     wrbm_max(i,:) = max(T_wrbm(mode_idx).*simout{i}.eta.Data(:,6+mode_idx));
     wrbm_max(i,:) = T_wrbm(mode_idx).*simout{i}.eta.Data(idx_max,6+mode_idx);
 end
 Legend{1} = 'All modes';
 for j = 1:length(mode_idx)
     Legend{j+1} = ['Mode ',num2str(mode_idx(j))];
 end
-% WRBM_ref = WRBM_max;
 WRBM_ref = WRBM_0;
 plot(gust_grad_dist_vec,WRBM_max./WRBM_ref)
 hold on

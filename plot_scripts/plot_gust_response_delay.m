@@ -1,7 +1,7 @@
 clear all;
 
 % add folders to path
-addPath();
+is_tigl_installed = addPath();
 
 is_tikz_export_desired = false;
 
@@ -16,7 +16,12 @@ fp_spec.EAS         = 177; % m/s
 [Ma,~] = altEas2MaTas( fp_spec.Altitude, fp_spec.EAS );
 
 % aircraft parameters
-[aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', false, 'Mach', Ma, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true, 'ControlsMainFile', 'wingControls_params_mainTefRedCm' );
+if is_tigl_installed
+    [aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', false, 'Mach', Ma, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true, 'ControlsMainFile', 'wingControls_params_mainTefRedCm' );
+else
+    load('data/aircraft_structure.mat');
+    wingSetCustomActuatorPath(aircraft.wing_main);
+end
 
 % environment parameters
 envir = envirLoadParams('envir_params_default');
@@ -50,6 +55,8 @@ simout_open_loop = simGust(gust_grad_dist,time,false,is_failure);
 T_delay = [0.16,0.08,0.04,0.02,0.01];
 %%
 tic
+open(model);
+set_param(model,'SimulationCommand','update');
 set_param(model,"FastRestart","on");
 
 simout  = {};
@@ -60,37 +67,20 @@ for i = 1:length(T_delay)
     
     [boost_servo,boost_aero] = delay2Booster( T_delay(i), omega_sens, gla_indi.dtc, gla_indi.atc );
     
+    % de-activate flap rate limit
     aircraft.actuators.LAD.defl_rate_max = 100;
     aircraft.actuators.LAD.defl_rate_min = -100;
-%     aircraft.actuators.LAD.defl_rate_max = deg2rad(100);
-%     aircraft.actuators.LAD.defl_rate_min = -deg2rad(100);
 
     gla_indi = glaIndiCreate( aircraft, fp_spec, 'SensOmega', omega_sens, ...
         'BoostServos', boost_servo, 'BoostUnstAeroMin', boost_aero, 'BoostUnstAeroMax', 8, ...
         'ModeControlIdx', [1,7], 'WeightModes', [1,1e-3] );
     gla_indi.ca.W_u = eye(length(gla_indi.ca.W_u));
     
-%     % Paper
-%     gla_indi.ca.W_v(1,1) = 2.5e-3;
-%     gla_indi.ca.W_v(3,3) = 1e-9;
-%     gla_indi.ca.gamma = 100;
+    gla_indi.ca.W_v(1,1) = 1e-9;
+    gla_indi.ca.W_v(2,2) = 1;
+    gla_indi.ca.W_v(3,3) = 1;
+    gla_indi.ca.gamma = 100;
     
-%     B=indiCeLadVar(gla_indi.ce,0.5,240,0.77);
-%     gla_indi.ca.W_u = diag( sqrt(B(2,:)) );
-%     gla_indi.ca.W_u(19:20,19:20) = gla_indi.ca.W_u(19:20,19:20)/1.41;
-    
-%     gla_indi.ca.W_u = diag( sign(B(1,:)).*sqrt(abs(B(1,:))) );
-%     gla_indi.ca.W_u(19:20,19:20) = gla_indi.ca.W_u(19:20,19:20)/1.41;
-    
-%     gla_indi.ca.gamma = 100;
-%     gla_indi.ca.W_v(1,1) = 1;
-    
-%     fm_atti_pitch.sens_filt.omega = gla_indi.sflt.omega;
-    
-%     gla_indi.k.pos = 0;
-%     gla_indi.k.vel = 0;
-%     gla_indi.ca.W_v(1,1) = 0.0000000001;
-
     simout{i} = simGust(gust_grad_dist,time,is_gla_enabled,is_failure);
     
 end
@@ -98,7 +88,7 @@ end
 set_param(model,"FastRestart","off");
 toc
 
-%% 
+%% Plot relative WRBM over time
 ds = 5;
 h = {};
 Legend = {};
@@ -118,7 +108,7 @@ box on
 legend([h_ol,h{:}],'Open loop',Legend{:},'interpreter','latex')
 
 
-%% 
+%% Plot load factor over time
 ds = 5;
 h = {};
 Legend = {};
@@ -148,9 +138,7 @@ else
     ax2.YLim(1) = ax1.YLim(1);
 end
 
-% legend([h_ol,h{:}],'Open loop',Legend{:},'interpreter','latex')
-
-%% 
+%% Plot relative deflection of 1st bending mode over time
 ds = 5;
 h = {};
 Legend = {};
@@ -180,9 +168,7 @@ else
     ax2.YLim(1) = ax1.YLim(1);
 end
 
-% legend([h_ol,h{:}],'Open loop',Legend{:},'interpreter','latex')
-
-%% 
+%% Plot relative deflection of 2nd bending mode over time
 ds = 5;
 h = {};
 Legend = {};
@@ -198,8 +184,6 @@ xlabel('Time, s')
 ylabel('Relative deflection')
 grid on
 box on
-
-% legend([h_ol,h{:}],'Open loop',Legend{:},'interpreter','latex')
 
 %% Export figure to TikZ
 figure(fig1)
@@ -244,3 +228,4 @@ if is_tikz_export_desired
     filename = exportFilename('gust_response_delay_eta7.tex');
     matlab2tikz(filename,'width',tikzwidth,'height',tikzheight,'extraCode',tikzfontsize,'extraAxisOptions',extra_axis_options);
 end
+

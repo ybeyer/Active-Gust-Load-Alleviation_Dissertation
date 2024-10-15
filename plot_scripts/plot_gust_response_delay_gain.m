@@ -1,7 +1,7 @@
 clear all;
 
 % add folders to path
-addPath();
+is_tigl_installed = addPath();
 
 is_tikz_export_desired = false;
 
@@ -16,7 +16,12 @@ fp_spec.EAS         = 177; % m/s
 [Ma,~] = altEas2MaTas( fp_spec.Altitude, fp_spec.EAS );
 
 % aircraft parameters
-[aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', false, 'Mach', Ma, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true, 'ControlsMainFile', 'wingControls_params_mainTefRedCm' );
+if is_tigl_installed
+    [aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', false, 'Mach', Ma, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true, 'ControlsMainFile', 'wingControls_params_mainTefRedCm' );
+else
+    load('data/aircraft_structure.mat');
+    wingSetCustomActuatorPath(aircraft.wing_main);
+end
 
 % environment parameters
 envir = envirLoadParams('envir_params_default');
@@ -55,6 +60,8 @@ k = {};
 
 simout  = {};
 
+open(model);
+set_param(model,'SimulationCommand','update');
 set_param(model,"FastRestart","on");
 
 for i = 1:length(T_delay)
@@ -63,17 +70,13 @@ for i = 1:length(T_delay)
     
         [boost_servo,boost_aero] = delay2Booster( T_delay(i), omega_sens, gla_indi.dtc, gla_indi.atc );
         
+        % de-activate flap rate limit
         aircraft.actuators.LAD.defl_rate_max = 100;
         aircraft.actuators.LAD.defl_rate_min = -100;
 
         gla_indi = glaIndiCreate( aircraft, fp_spec, 'SensOmega', omega_sens, ...
             'BoostServos', boost_servo, 'BoostUnstAeroMin', boost_aero, 'BoostUnstAeroMax', 8 );
         gla_indi.ca.W_u = eye(length(gla_indi.ca.W_u));
-        
-%         % Paper
-%         gla_indi.ca.W_v(1,1) = 2.5e-3;
-%         gla_indi.ca.W_v(3,3) = 1e-9;
-%         gla_indi.ca.gamma = 100;
         
         gla_indi.k.pos = k_rel(j) * gla_indi.k.pos;
         gla_indi.k.vel = k_rel(j) * gla_indi.k.vel;
@@ -88,7 +91,7 @@ end
 
 set_param(model,"FastRestart","off");
 
-%%
+%% Post process simulations
 
 WRBM_rel_ol = max(simout_open_loop.WBM.Data(:,5)/simout_open_loop.WBM.Data(1,5));
 WRBM_rel = [];
@@ -105,7 +108,7 @@ for i = 1:length(T_delay)
     Legend{i} = ['$T=',num2str(T_delay(i)),'$\,s'];
 end
 
-%%
+%% Plot max. relative WRBM over feedback gain
 fig1=figure;
 h_ol = semilogx([min(k_pos(k_pos>0)),max(k_pos(:))],repmat(WRBM_rel_ol,1,2),'-');
 hold on
@@ -115,7 +118,7 @@ xlabel('Mode feedback gain $k_{\eta_1}$','interpreter','latex')
 ylabel('Max. relative WRBM')
 legend([h_ol;h],'Open loop',Legend{:},'interpreter','latex','location','northeast')
 
-%%
+%% Plot max. load factor over feedback gain
 fig2=figure;
 h_ol = semilogx([min(k_pos(k_pos>0)),max(k_pos(:))],repmat(Load_factor_ol,1,2),'-');
 hold on
@@ -124,7 +127,6 @@ ylim([1,inf])
 grid on
 xlabel('Mode feedback gain $k_{\eta_1}$','interpreter','latex')
 ylabel('Max. load factor')
-% legend([h_ol;h],'Open loop',Legend{:},'interpreter','latex','location','northeast')
 
 ax1 = get(fig1,'CurrentAxes');
 ax2 = get(fig2,'CurrentAxes');
@@ -163,3 +165,4 @@ if is_tikz_export_desired
     filename = exportFilename('gust_response_delay_gain_acc.tex');
     matlab2tikz(filename,'width',tikzwidth,'height',tikzheight,'extraCode',tikzfontsize,'extraAxisOptions',extra_axis_options);
 end
+

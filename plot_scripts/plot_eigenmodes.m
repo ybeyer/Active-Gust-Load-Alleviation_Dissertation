@@ -1,11 +1,16 @@
 clear all;
 
-addPath();
+is_tigl_installed = addPath();
 
 is_tikz_export_desired = false;
 
 %% Init aircraft
-[aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true );
+if is_tigl_installed
+    [aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true );
+else
+    load('data/aircraft_structure.mat');
+    wingSetCustomActuatorPath(aircraft.wing_main);
+end
 
 %% Plot
 mode_nums = [1,3,5,7];
@@ -39,3 +44,4 @@ for i = 1:length(mode_nums)
         matlab2tikz(filename,'width',tikzwidth,'height',tikzheight,'extraAxisOptions',extra_axis_options);
     end
 end
+

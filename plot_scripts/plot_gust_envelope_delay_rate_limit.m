@@ -1,7 +1,7 @@
 clear all;
 
 % add folders to path
-addPath();
+is_tigl_installed = addPath();
 
 is_tikz_export_desired = false;
 
@@ -16,7 +16,12 @@ fp_spec.EAS         = 177; % m/s
 [Ma,~] = altEas2MaTas( fp_spec.Altitude, fp_spec.EAS );
 
 % aircraft parameters
-[aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', false, 'Mach', Ma, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true, 'ControlsMainFile', 'wingControls_params_mainTefRedCm' );
+if is_tigl_installed
+    [aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', false, 'Mach', Ma, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true, 'ControlsMainFile', 'wingControls_params_mainTefRedCm' );
+else
+    load('data/aircraft_structure.mat');
+    wingSetCustomActuatorPath(aircraft.wing_main);
+end
 
 % environment parameters
 envir = envirLoadParams('envir_params_default');
@@ -41,6 +46,7 @@ ic = tpGenerateIC(tp_indi);
 tic
 
 open(model);
+set_param(model,'SimulationCommand','update');
 set_param(model,"FastRestart","on");
 
 time = 0.8;
@@ -52,9 +58,7 @@ is_gla_enabled  = true;
 omega_sens      = 500;
 
 T_delay_1 = [100,0.16,0.08,0.04,0.02,0.01];
-% T_delay_1 = [100,0.07,0.05,0.035,0.02,0.01];
 T_delay = sort([T_delay_1,T_delay_1(2:end-1)+diff(T_delay_1(2:end)/2)],'descend');
-% T_delay = [0.02];
 simout  = {};
 simout_nrl = {};
 
@@ -94,7 +98,6 @@ for i = 1:length(T_delay)
             gla_indi.ca.W_v(2,2) = 1;
             gla_indi.ca.W_v(3,3) = 1e-9;
             gla_indi.ca.gamma = 1e7;
-%             gla_indi.ca.W_u = eye(length(gla_indi.ca.W_u));
         end
         if cntrl_var == 2
             gla_indi.ca.W_v(1,1) = 1e-9;
@@ -129,19 +132,9 @@ for i = 1:length(T_delay)
             gla_indi.ca.W_v(3,3) = 1e-3;
             gla_indi.ca.gamma = 1e7;
         end
-%         if cntrl_var == 1
-%             B = indiCeLadVar( gla_indi.ce, 0.5, 240, 0.77 );
-%             gla_indi.ca.W_u = diag( sqrt(B(2,:)) );
-%             gla_indi.ca.W_u(19:20,19:20) = gla_indi.ca.W_u(19:20,19:20)/1.41;
-%             gla_indi.ca.W_v(3,3) = 1e-3;
-%         end
 
         simout_nrl{i,j} = simGust(gust_grad_dist(j),time,is_gla_enabled,is_failure);
         
-%         if ~is_az
-%             gla_indi.ca.W_v(3,3) = 1e-3;
-%             simout_nrl2{i,j} = simGust(gust_grad_dist(j),time,is_gla_enabled,is_failure);
-%         end
         
         aircraft.actuators.LAD.defl_rate_max = deg2rad(100);
         aircraft.actuators.LAD.defl_rate_min = -deg2rad(100);
@@ -215,7 +208,7 @@ end
 set_param(model,"FastRestart","off");
 toc
 
-%%
+%% Post-process simulations: Collect maximum bending moments
 eta = linspace(0.1,0.95,30);
 
 Mx_trim = (structureGetCutLoadTrafoAt(aircraft.eom_flexible.structure_red,structure,eta,'Mx',0)*simout_nrl{1,1}.eta.Data(1,:)')';
@@ -233,7 +226,7 @@ for i = 1:size(simout,1)
 end
 Mx_max_open_loop = Mx_max(1,:,:);
 
-%%
+%% Plot maximum bending moments over span
 figure
 hold on
 h0 = plot(eta,Mx_trim,'r-');
@@ -246,11 +239,7 @@ for i = 1:size(Mx_max2(2:2:end,:,:),1)
     Legend{i+1} = ['$T=',num2str(T_delay(2*i)),'$\,s'];
 end
 Legend{end+1} = 'Trim';
-% if ~is_az
-%     for i = 1:size(Mx_max2(2:2:end,:,:),1)
-%         plot(eta,squeeze(max(Mx_max2(2*i,:,:),[],2))','LineStyle','-.','Color',h{i+1}.Color);
-%     end
-% end
+
 for i = 1:size(Mx_max(2:2:end,:,:),1)
     plot(eta,squeeze(max(Mx_max(2*i,:,:),[],2))','LineStyle','--','Color',h{i+1}.Color);
 end
@@ -271,7 +260,7 @@ if is_tikz_export_desired
     matlab2tikz(['tex/gust_envelope_',num2str(cntrl_var),'.tex'],'width',tikzwidth,'height',tikzheight,'extraCode',tikzfontsize,'extraAxisOptions',extra_axis_options);
 end
 
-%%
+%% Plot maximum relative bending moment over span
 figure
 hold on
 h0 = plot(eta,Mx_trim./Mx_trim,'r-');
@@ -284,11 +273,7 @@ for i = 1:size(Mx_max2(2:2:end,:,:),1)
     Legend{i+1} = ['$T=',num2str(T_delay(2*i)),'$\,s'];
 end
 Legend{end+1} = 'Trim';
-% if ~cntrl_var
-%     for i = 1:size(Mx_max2(2:2:end,:,:),1)
-%         plot(eta,squeeze(max(Mx_max2(2*i,:,:),[],2))'./Mx_trim,'LineStyle','-.','Color',h{i+1}.Color);
-%     end
-% end
+
 for i = 1:size(Mx_max(2:2:end,:,:),1)
     plot(eta,squeeze(max(Mx_max(2*i,:,:),[],2))'./Mx_trim,'LineStyle','--','Color',h{i+1}.Color);
 end
@@ -298,7 +283,6 @@ box on
 xlim([min(eta),1])
 xlabel('Dimensionless span')
 ylabel('Relative bending moment')
-% legend([[h{:}],h0],Legend{:},'interpreter','latex')
 
 %% Export figure to TikZ
 if is_tikz_export_desired
@@ -309,7 +293,7 @@ if is_tikz_export_desired
     matlab2tikz(['tex/gust_envelope_rel_',num2str(cntrl_var),'.tex'],'width',tikzwidth,'height',tikzheight,'extraCode',tikzfontsize,'extraAxisOptions',extra_axis_options);
 end
 
-%%
+%% Post-process simulations
 WRBM_rel = [];
 Load_factor = [];
 WRBM_rel_nrl = [];
@@ -327,13 +311,6 @@ for i = 1:size(simout,1)
         Load_factor(i,j) = 1 + max(abs(-simout{i,j}.acc.Data)/9.81);
         WRBM_rel_nrl(i,j) = 1 + max(abs(simout_nrl{i,j}.WBM.Data(:,5)-simout_nrl{i,j}.WBM.Data(1,5))/simout_nrl{i,j}.WBM.Data(1,5));
         Load_factor_nrl(i,j) = 1 + max(abs(-simout_nrl{i,j}.acc.Data)/9.81);
-%         if cntrl_var || i==1
-%             WRBM_rel_nrl(i,j) = max(simout_nrl{i,j}.WBM.Data(:,5)/simout_nrl{i,j}.WBM.Data(1,5));
-%             Load_factor_nrl(i,j) = max(-simout_nrl{i,j}.acc.Data/9.81 + 1);
-%         else
-%             WRBM_rel_nrl(i,j) = max(simout_nrl2{i,j}.WBM.Data(:,5)/simout_nrl2{i,j}.WBM.Data(1,5));
-%             Load_factor_nrl(i,j) = max(-simout_nrl2{i,j}.acc.Data/9.81 + 1);
-%         end
     end
     WRBM_gust_grad = interp1( gust_grad_dist, WRBM_rel(i,:), gust_grad, 'makima' );
     [WRBM_max(i),gust_grad_max_idx] = max( WRBM_gust_grad );
@@ -347,7 +324,7 @@ for i = 1:size(simout,1)
     [Load_factor_max_nrl(i),~] = max( Load_factor_gust_grad_nrl );
 end
 
-%% WRBM vs. gust gradient distance
+%% Plot WRBM vs. gust gradient distance
 Legend = {};
 figure
 is_mem_dist = ismember(gust_grad_dist,gust_grad_dist_1);
@@ -378,7 +355,7 @@ if is_tikz_export_desired
     matlab2tikz(filename,'width',tikzwidth,'height',tikzheight,'extraCode',tikzfontsize,'extraAxisOptions',extra_axis_options);
 end
 
-%% Load factor vs. gust gradient distance
+%% Plot load factor vs. gust gradient distance
 Legend = {};
 figure
 h1=plot(2*gust_grad_dist,Load_factor(is_mem_T,:));
@@ -395,7 +372,6 @@ xlim([min(2*gust_grad_dist),max(2*gust_grad_dist)])
 ylim([1,4.2])
 xlabel('Gust length, ft')
 ylabel('Max. load factor')
-% legend(h1,Legend{:},'interpreter','latex','location','north','NumColumns',2)
 
 %% Export figure to TikZ
 if is_tikz_export_desired
@@ -407,7 +383,7 @@ if is_tikz_export_desired
     matlab2tikz(filename,'width',tikzwidth,'height',tikzheight,'extraCode',tikzfontsize,'extraAxisOptions',extra_axis_options);
 end
 
-%% 
+%% Plot maximum WRBM over control system time delay
 figure
 hold on
 plot(T_delay(2:end),WRBM_max(2:end),'k')
@@ -429,7 +405,7 @@ if is_tikz_export_desired
     matlab2tikz(filename,'width',tikzwidth,'height',tikzheight,'extraCode',tikzfontsize,'extraAxisOptions',extra_axis_options);
 end
 
-%% 
+%% Plot maximum load factor over control system time delay
 figure
 hold on
 plot(T_delay(2:end),Load_factor_max(2:end),'k')
@@ -450,3 +426,4 @@ if is_tikz_export_desired
     filename = exportFilename(['gust_acc_rate_',num2str(cntrl_var),'.tex']);
     matlab2tikz(filename,'width',tikzwidth,'height',tikzheight,'extraCode',tikzfontsize,'extraAxisOptions',extra_axis_options);
 end
+

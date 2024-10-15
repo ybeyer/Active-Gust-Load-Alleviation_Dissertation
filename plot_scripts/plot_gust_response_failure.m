@@ -1,7 +1,7 @@
 clear all;
 
 % add folders to path
-addPath();
+is_tigl_installed = addPath();
 
 is_tikz_export_desired = false;
 
@@ -16,7 +16,12 @@ fp_spec.EAS         = 177; % m/s
 [Ma,~] = altEas2MaTas( fp_spec.Altitude, fp_spec.EAS );
 
 % aircraft parameters
-[aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', false, 'Mach', Ma, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true, 'ControlsMainFile', 'wingControls_params_mainTefRedCm' );
+if is_tigl_installed
+    [aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', false, 'Mach', Ma, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true, 'ControlsMainFile', 'wingControls_params_mainTefRedCm' );
+else
+    load('data/aircraft_structure.mat');
+    wingSetCustomActuatorPath(aircraft.wing_main);
+end
 
 % environment parameters
 envir = envirLoadParams('envir_params_default');
@@ -55,10 +60,10 @@ gla_indi = glaIndiCreate( aircraft, fp_spec, 'SensOmega', omega_sens, ...
     'BoostServos', boost_servo, 'BoostUnstAeroMin', boost_aero, 'BoostUnstAeroMax', 8 );
 gla_indi.ca.W_u = eye(length(gla_indi.ca.W_u));
 
-% % Paper
-% gla_indi.ca.W_v(1,1) = 2.5e-3;
-% gla_indi.ca.gamma = 100;
-% gla_indi.ca.W_v(3,3) = 1e-9;
+gla_indi.ca.W_v(1,1) = 1e-9;
+gla_indi.ca.W_v(2,2) = 1;
+gla_indi.ca.W_v(3,3) = 1;
+gla_indi.ca.gamma = 1e7;
 
 gust_grad_dist = 180;
 is_gla_enabled = true;
@@ -67,7 +72,7 @@ simout_healthy = simGust(gust_grad_dist,time,is_gla_enabled,is_failure);
 is_failure = true;
 simout_failure = simGust(gust_grad_dist,time,is_gla_enabled,is_failure);
 
-%%
+%% Plot relative WRBM over time
 ds = 5;
 fig1=figure;
 ah = axes;
@@ -76,6 +81,10 @@ hold on
 hfl=plot(simout_failure.WBM.Time(1:ds:end),simout_failure.WBM.Data(1:ds:end,5)/simout_failure.WBM.Data(1,5));
 hfr=plot(simout_failure.WBM.Time(1:ds:end),simout_failure.WBM.Data(1:ds:end,6)/simout_failure.WBM.Data(1,6),'Color',hfl.Color,'LineStyle','--');
 
+y_lim = [0.5,2];
+y_tick = 0.5:0.5:2;
+ylim(y_lim);
+yticks(y_tick);
 xlabel('Time, s')
 ylabel('Relative WRBM')
 grid on
@@ -84,7 +93,7 @@ legend(ah,[hhl,hfl,hfr],...
     'Healthy','Fault (faulty side)','Fault (healthy side)','location','northeast');
 
 
-%% 
+%% Plot load factor over time
 ds = 5;
 h = {};
 Legend = {};
@@ -93,6 +102,8 @@ hold on
 plot(simout_healthy.acc.Time(1:ds:end),-simout_healthy.acc.Data(1:ds:end)/9.81+1);
 plot(simout_failure.acc.Time(1:ds:end),-simout_failure.acc.Data(1:ds:end)/9.81+1);
 
+ylim(y_lim);
+yticks(y_tick);
 xlabel('Time, s')
 ylabel('Load factor')
 grid on
@@ -134,3 +145,4 @@ if is_tikz_export_desired
     filename = exportFilename('gust_response_failure_acc.tex');
     matlab2tikz(filename,'width',tikzwidth,'height',tikzheight,'extraCode',tikzfontsize,'extraAxisOptions',extra_axis_options);
 end
+

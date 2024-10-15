@@ -1,7 +1,7 @@
 clear all;
 
 % add folders to path
-addPath();
+is_tigl_installed = addPath();
 
 is_tikz_export_desired = false;
 
@@ -10,8 +10,6 @@ is_tikz_export_desired = false;
 model = 'sim_flexible_unsteady_indi';
 
 % flight point
-% fp_spec.Altitude	= 6000; % m
-% fp_spec.EAS         = 177; % m/s
 fp_spec.Altitude	= 11200; % m
 fp_spec.EAS         = 121.8; % m/s
 % fp_spec.Altitude	= 6000; % m
@@ -20,7 +18,12 @@ fp_spec.EAS         = 121.8; % m/s
 [Ma,~] = altEas2MaTas( fp_spec.Altitude, fp_spec.EAS );
 
 % aircraft parameters
-[aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', true, 'Mach', Ma, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true, 'ControlsMainFile', 'wingControls_params_mainTefRedCm' );
+if is_tigl_installed
+    [aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', false, 'Mach', Ma, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true, 'ControlsMainFile', 'wingControls_params_mainTefRedCm' );
+else
+    load('data/aircraft_structure.mat');
+    wingSetCustomActuatorPath(aircraft.wing_main);
+end
 
 % environment parameters
 envir = envirLoadParams('envir_params_default');
@@ -81,7 +84,7 @@ end
 
 toc
 
-%% 
+%% Plot relative WRBM
 ds = 5;
 Legend = {};
 figtmp = figure;
@@ -107,7 +110,7 @@ box on
 legend([h_ol,h{:}],'Open loop',Legend{:},'interpreter','latex')
 
 
-%% 
+%% Plot load factor
 ds = 5;
 h = {};
 Legend = {};
@@ -139,10 +142,8 @@ else
     ax2.YLim(1) = ax1.YLim(1);
 end
 
-% legend([h_ol,h{:}],'Open loop',Legend{:},'interpreter','latex')
-
-
-%%
+%% Plot flap commands
+% get colors
 fig_temp = figure;
 h = plot(rand(2,3),rand(2,3));
 c = get(h,'Color');
@@ -201,7 +202,7 @@ figure(fig4);
 grid on
 box on
 
-%%
+%% Plot local lift coefficients
 fig5=figure;
 hold on
 xlabel('Time, s')
@@ -249,7 +250,7 @@ figure(fig6);
 grid on
 box on
 
-%%
+%% Plot flow separation point
 fig7=figure;
 hold on
 xlabel('Time, s')
@@ -286,10 +287,12 @@ end
 
 legend([hl{:}],Legend{:},'location','northeast')
 
-
-
-num = [];
-% num = '_2';
+%% Adjust TikZ filename
+if fp_spec.Altitude == 6000
+    num = '_2';
+else
+    num = [];
+end
 
 %% Export figure to TikZ
 figure(fig1)
@@ -378,3 +381,4 @@ if is_tikz_export_desired
     filename = exportFilename(['gust_stall_local_xf_cl',num,'.tex']);
     matlab2tikz(filename,'width',tikzwidth,'height',tikzheight,'extraCode',tikzfontsize,'extraAxisOptions',extra_axis_options);
 end
+

@@ -1,5 +1,5 @@
 % add folders to path
-addPath();
+is_tigl_installed = addPath();
 
 is_tikz_export_desired = false;
 
@@ -15,22 +15,24 @@ grid_foldername = 'GRID_SE2A_MR_BWD_swept_V4_twist';
 i = 3;
 
 pch_filename = pch_filenames{i};
-[aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', true, 'Mach', 0.76, ...
-    'pchfilename',pch_filename,'gridfoldername',grid_foldername);
 
-%%
+if is_tigl_installed
+    [aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', true, 'Mach', 0.76, ...
+        'pchfilename',pch_filename,'gridfoldername',grid_foldername);
+else
+    load('data/aircraft_structure.mat');
+    wingSetCustomActuatorPath(aircraft.wing_main);
+end
+
+%% Create 3D plot
 figure
 structurePlot(structure,'MassColor',[0.8,0.2,0.2],'StructureColor',[0,0,0],'MassSize',0.75,'LineWidth',0.33,'NodeSize',0.3);
 grid off
 xlabel('');
 ylabel('');
 zlabel('');
-% xlim([-35,-10])
-% ylim([-21,21])
-% zlim([-4,-2])
 
 view(135,35)
-% axis off
 
 %% Export figure to TikZ
 if is_tikz_export_desired
@@ -47,3 +49,4 @@ if is_tikz_export_desired
     fprintf(fid,'%s\n',str);
     fclose(fid);
 end
+

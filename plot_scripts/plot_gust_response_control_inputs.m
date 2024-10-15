@@ -1,7 +1,7 @@
 clear all;
 
 % add folders to path
-addPath();
+is_tigl_installed = addPath();
 
 is_tikz_export_desired = false;
 
@@ -16,7 +16,12 @@ fp_spec.EAS         = 177; % m/s
 [Ma,~] = altEas2MaTas( fp_spec.Altitude, fp_spec.EAS );
 
 % aircraft parameters
-[aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', false, 'Mach', Ma, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true, 'ControlsMainFile','wingControls_params_mainTefRedCm' );
+if is_tigl_installed
+    [aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', false, 'Mach', Ma, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true, 'ControlsMainFile','wingControls_params_mainTefRedCm' );
+else
+    load('data/aircraft_structure.mat');
+    wingSetCustomActuatorPath(aircraft.wing_main);
+end
 
 % environment parameters
 envir = envirLoadParams('envir_params_default');
@@ -59,13 +64,13 @@ gla_indi.ca.W_u = eye(length(gla_indi.ca.W_u));
 
 simout = simGust(gust_grad_dist,time,is_gla_enabled,is_failure);
 
-%%
+%% Plot flap commands
+% get colors
 fig_temp = figure;
 h = plot(rand(2,3),rand(2,3));
 c = get(h,'Color');
 colors_default = reshape([c{:}],3,[]);
 close(fig_temp);
-
 
 figure
 hold on
@@ -79,7 +84,6 @@ ylabel('Flap commands')
 
 Legend = {};
 hl = {};
-
 
 colors = interp1([1,9,19]',colors_default(:,end:-1:1)',1:19)';
 for i = 1:length(idx_flap)
@@ -104,7 +108,7 @@ if is_tikz_export_desired
     matlab2tikz(filename,'width',tikzwidth,'height',tikzheight,'extraCode',tikzfontsize,'extraAxisOptions',extra_axis_options);
 end
 
-%%
+%% Plot local lift coefficients
 figure
 hold on
 
@@ -124,7 +128,6 @@ for i = 1:length(idx_flap)
     end
 end
 
-% legend([hl{:}],Legend{:},'location','south')
 grid on
 box on
 
@@ -139,3 +142,4 @@ if is_tikz_export_desired
     filename = exportFilename('gust_local_c_L.tex');
     matlab2tikz(filename,'width',tikzwidth,'height',tikzheight,'extraCode',tikzfontsize,'extraAxisOptions',extra_axis_options);
 end
+

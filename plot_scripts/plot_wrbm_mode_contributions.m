@@ -1,7 +1,7 @@
 clear all;
 
 % add folders to path
-addPath();
+is_tigl_installed = addPath();
 
 is_tikz_export_desired = false;
 
@@ -14,7 +14,12 @@ fp_spec.EAS         = 177; % m/s
 [Ma,~] = altEas2MaTas( fp_spec.Altitude, fp_spec.EAS );
 
 % aircraft parameters
-[aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', false, 'Mach', Ma, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true, 'ControlsMainFile', 'wingControls_params_mainTefRedCm' );
+if is_tigl_installed
+    [aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', false, 'Mach', Ma, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true, 'ControlsMainFile', 'wingControls_params_mainTefRedCm' );
+else
+    load('data/aircraft_structure.mat');
+    wingSetCustomActuatorPath(aircraft.wing_main);
+end
 
 % environment parameters
 envir = envirLoadParams('envir_params_default');
@@ -25,13 +30,12 @@ tp_indi = trimFlexibleUnsteady(aircraft,structure,fp_spec,'lin_flexible_steady')
 ic = tpGenerateIC(tp_indi);
 
 
-%% WRBM contributions for specified trim point
+%% Plot static WRBM contributions of modes for specified trim point
 
 T_wrbm=structureGetCutLoadTrafoAt(aircraft.eom_flexible.structure_red,structure,0.1,'Mx',0);
 T_wrbm(1:6)=[];
 
 WRBM = T_wrbm * tpGetState(tp_indi,'eta__')';
-
 
 figure
 

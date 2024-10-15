@@ -46,7 +46,7 @@ if is_tikz_export_desired
     tikzheight = '\figureheight';
     tikzfontsize = '\tikzstyle{every node}=[font=\tikzfontsize]';
     extra_axis_options = {'ylabel style={font=\tikzfontsize}','xlabel style={font=\tikzfontsize}','ticklabel style={/pgf/number format/fixed}','legend style={font=\tikzfontsize}'};
-    filename = exportFilename('actuator_boost_example_complex.tex');
+    filename = exportFilename('actuator_boost_example.tex');
     matlab2tikz(filename,'width',tikzwidth,'height',tikzheight,'extraCode',tikzfontsize,'extraAxisOptions',extra_axis_options);
 end
 
@@ -59,7 +59,6 @@ end
 marker_size = 8;
 figure
 hold on
-% ho=plot(real(z0),imag(z0),'ko','MarkerSize',marker_size);
 hx=plot(real(p0),imag(p0),'kx','MarkerSize',marker_size);
 h0x=plot(real(p0),imag(p0),'x','MarkerSize',marker_size);
 ho=plot(real(zb),imag(zb),'ko','MarkerSize',marker_size);
@@ -90,7 +89,6 @@ end
 %%
 function [] = changeTexNodeFontSize(filename)
 str = fileread( filename );
-% str = strrep(str,'line width=2.0pt','line width=1.0pt');
 str = strrep(str,'{ylabel style={font=\color{white!15!black}}','{ylabel style={font=\color{white!15!black}\tikzfontsize}');
 fid = fopen( filename, 'wt' );
 idx_line_end = strfind( str, newline );
@@ -108,12 +106,6 @@ for current_line_idx = 1:num_lines
             str = [str(1:current_idx-1),new_line_content,str(idx_line_end(current_line_idx)+1:end)];
             idx_line_end(current_line_idx:end) = idx_line_end(current_line_idx:end) + 13;
         end
-%         if contains(current_line_content,'mark size')
-%             content_split = strsplit(current_line_content,'mark size');
-%             mark_size = str2double(content_split{2}(2:7));
-%             mark_size = 1.15*mark_size;
-%             str(current_idx:idx_line_end(current_line_idx)) = [content_split{1},'mark size=',num2str(mark_size),content_split{2}(8:end)];
-%         end
     end
 end
 fprintf(fid,'%s\n',str);

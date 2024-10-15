@@ -1,7 +1,7 @@
 clear all;
 
 % add folders to path
-addPath();
+is_tigl_installed = addPath();
 
 is_tikz_export_desired = false;
 
@@ -16,7 +16,12 @@ fp_spec.EAS         = 177; % m/s
 [Ma,~] = altEas2MaTas( fp_spec.Altitude, fp_spec.EAS );
 
 % aircraft parameters
-[aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', false, 'Mach', Ma, 'pchfilename','na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true, 'ControlsMainFile', 'wingControls_params_mainTefRedCm' );
+if is_tigl_installed
+    [aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', false, 'Mach', Ma, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true, 'ControlsMainFile', 'wingControls_params_mainTefRedCm' );
+else
+    load('data/aircraft_structure.mat');
+    wingSetCustomActuatorPath(aircraft.wing_main);
+end
 
 % environment parameters
 envir = envirLoadParams('envir_params_default');
@@ -38,7 +43,6 @@ ic = tpGenerateIC(tp_indi);
 
 %% Run simulations
 
-time = 3*ft2m(2*150)/ic.V_Kb(1);
 time = 1.4;
 is_failure = false;
 omega_sens = 500;
@@ -51,20 +55,14 @@ gla_indi = glaIndiCreate( aircraft, fp_spec, 'SensOmega', omega_sens, ...
 gla_indi.ca.W_u = eye(length(gla_indi.ca.W_u));
 
 gla_indi.ca.W_v(1,1) = 1e-9;
-% gla_indi.k.pos(:) = 0;
-% gla_indi.k.vel(:) = 0;
-% gla_indi.k.acc(:) = 0;
-
-% % Paper
-% gla_indi.ca.W_v(1,1) = 2.5e-3;
-% gla_indi.ca.W_v(3,3) = 1e-9;
-% gla_indi.ca.gamma = 100;
 
 gust_grad_dist = [60,120,240,360,480,700]/2;
 
 simout_0  = {};
 simout_1  = {};
 
+open(model);
+set_param(model,'SimulationCommand','update');
 set_param(model,"FastRestart","on");
 for i = 1:length(gust_grad_dist)
     simout_0{i} = simGust(gust_grad_dist(i),time,0,is_failure);
@@ -72,7 +70,7 @@ for i = 1:length(gust_grad_dist)
 end
 set_param(model,"FastRestart","off");
 
-%%
+%% Plot WRBM over time
 
 WBM0 = simout_0{1}.WBM.Data(1,5);
 ds = 5;
@@ -98,7 +96,7 @@ ylabel('Relative WRBM')
 
 legend([h1{:}],Legend{:},'interpreter','latex')
 
-%%
+%% Plot load factor over time
 
 ds = 5;
 h0 = {};
@@ -113,16 +111,12 @@ hold on
 for i = 1:length(gust_grad_dist)
     h0{i} = plot(simout_0{i}.acc.Time(1:ds:end),-simout_0{i}.acc.Data(1:ds:end)/9.81+1,'Color',colors{i},'LineStyle','--');
     h1{i} = plot(simout_1{i}.acc.Time(1:ds:end),-simout_1{i}.acc.Data(1:ds:end)/9.81+1,'Color',colors{i},'LineStyle','-');
-%     Legend{i} = ['$\lambda=',num2str(2*gust_grad_dist(i)),'$\,ft'];
 end
 grid on
 box on
 xlim([0,time])
 xlabel('Time, s')
 ylabel('Load factor')
-
-% legend([h1{:}],Legend{:},'interpreter','latex')
-
 
 ax1 = get(fig1,'CurrentAxes');
 ax2 = get(fig2,'CurrentAxes');
@@ -137,7 +131,7 @@ else
     ax2.YLim(1) = ax1.YLim(1);
 end
 
-%% 
+%% Plot 1st relative bending mode over time
 
 eta_n = 1;
 ds = 5;
@@ -153,16 +147,12 @@ hold on
 for i = 1:length(gust_grad_dist)
     h0{i} = plot(simout_0{i}.eta.Time(1:ds:end),simout_0{i}.eta.Data(1:ds:end,6+eta_n)/simout_0{i}.eta.Data(1,6+eta_n),'Color',colors{i},'LineStyle','--');
     h1{i} = plot(simout_1{i}.eta.Time(1:ds:end),simout_1{i}.eta.Data(1:ds:end,6+eta_n)/simout_1{i}.eta.Data(1,6+eta_n),'Color',colors{i},'LineStyle','-');
-%     Legend{i} = ['$\lambda=',num2str(2*gust_grad_dist(i)),'$\,ft'];
 end
 grid on
 box on
 xlim([0,time])
 xlabel('Time, s')
 ylabel('Relative deflection')
-
-% legend([h1{:}],Legend{:},'interpreter','latex')
-
 
 ax1 = get(fig1,'CurrentAxes');
 ax2 = get(fig3,'CurrentAxes');
@@ -177,7 +167,7 @@ else
     ax2.YLim(1) = ax1.YLim(1);
 end
 
-%% 
+%% Plot 2nd relative bending mode over time
 
 eta_n = 7;
 ds = 5;
@@ -193,16 +183,12 @@ hold on
 for i = 1:length(gust_grad_dist)
     h0{i} = plot(simout_0{i}.eta.Time(1:ds:end),simout_0{i}.eta.Data(1:ds:end,6+eta_n)/simout_0{i}.eta.Data(1,6+eta_n),'Color',colors{i},'LineStyle','--');
     h1{i} = plot(simout_1{i}.eta.Time(1:ds:end),simout_1{i}.eta.Data(1:ds:end,6+eta_n)/simout_1{i}.eta.Data(1,6+eta_n),'Color',colors{i},'LineStyle','-');
-%     Legend{i} = ['$\lambda=',num2str(2*gust_grad_dist(i)),'$\,ft'];
 end
 grid on
 box on
 xlim([0,time])
 xlabel('Time, s')
 ylabel('Relative deflection')
-
-% legend([h1{:}],Legend{:},'interpreter','latex')
-
 
 ax1 = get(fig1,'CurrentAxes');
 ax2 = get(fig4,'CurrentAxes');

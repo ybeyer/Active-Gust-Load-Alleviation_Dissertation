@@ -1,7 +1,7 @@
 clear all;
 
 % add folders to path
-addPath();
+is_tigl_installed = addPath();
 
 is_tikz_export_desired = false;
 
@@ -16,7 +16,12 @@ fp_spec.EAS         = 177; % m/s
 [Ma,~] = altEas2MaTas( fp_spec.Altitude, fp_spec.EAS );
 
 % aircraft parameters
-[aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', false, 'Mach', Ma, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true, 'ControlsMainFile', 'wingControls_params_mainTefRedCm' );
+if is_tigl_installed
+    [aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', false, 'Mach', Ma, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true, 'ControlsMainFile', 'wingControls_params_mainTefRedCm' );
+else
+    load('data/aircraft_structure.mat');
+    wingSetCustomActuatorPath(aircraft.wing_main);
+end
 
 % environment parameters
 envir = envirLoadParams('envir_params_default');
@@ -41,7 +46,6 @@ ic = tpGenerateIC(tp_indi);
 time = 12;
 
 turbulence_rms  = 6.5;
-% turbulence_rms  = 7.9;
 is_failure      = false;
 is_gla_enabled  = true;
 omega_sens      = 500;
@@ -52,21 +56,22 @@ T_delay = [0.16,0.08,0.04,0.02,0.01];
 simout  = {};
 simout_rl = {};
 
-%%
+%% Run simulations
 
 for i = 1:length(T_delay)
     
     [boost_servo,boost_aero] = delay2Booster( T_delay(i), omega_sens, gla_indi.dtc, gla_indi.atc );
     
+    % de-activate flap rate limit
     aircraft.actuators.LAD.defl_rate_max = 100;
     aircraft.actuators.LAD.defl_rate_min = -100;
 
     gla_indi = glaIndiCreate( aircraft, fp_spec, 'SensOmega', omega_sens, ...
         'BoostServos', boost_servo, 'BoostUnstAeroMin', boost_aero, 'BoostUnstAeroMax', 8, ...
-        'ModeControlIdx', [1,7], 'WeightModes', [1,1e-9]);
+        'ModeControlIdx', [1,7], 'WeightModes', [1,1]);
     gla_indi.ca.W_v(1,1) = 1e-9;
     gla_indi.ca.W_v(2,2) = 1;
-    gla_indi.ca.W_v(3,3) = 1e-9;
+    gla_indi.ca.W_v(3,3) = 1;
     gla_indi.ca.gamma = 1e7;
     gla_indi.ca.W_u = eye(length(gla_indi.ca.W_u));
 
@@ -77,10 +82,10 @@ for i = 1:length(T_delay)
     
     gla_indi = glaIndiCreate( aircraft, fp_spec, 'SensOmega', omega_sens, ...
         'BoostServos', boost_servo, 'BoostUnstAeroMin', boost_aero, 'BoostUnstAeroMax', 8, ...
-        'ModeControlIdx', [1,7], 'WeightModes', [1,1e-9] );
+        'ModeControlIdx', [1,7], 'WeightModes', [1,1] );
     gla_indi.ca.W_v(1,1) = 1e-9;
     gla_indi.ca.W_v(2,2) = 1;
-    gla_indi.ca.W_v(3,3) = 1e-9;
+    gla_indi.ca.W_v(3,3) = 1;
     gla_indi.ca.gamma = 1e7;
     gla_indi.ca.W_u = eye(length(gla_indi.ca.W_u));
     
@@ -88,7 +93,7 @@ for i = 1:length(T_delay)
     
 end
 
-%% Plot 1
+%% Plot relative WRBM over time
 ds = 5;
 h = {};
 Legend = {};
@@ -100,6 +105,11 @@ for i = 1:length(T_delay)
     Legend{i} = ['$T=',num2str(T_delay(i)),'$\,s'];
 end
 
+y_lim = [-1,3.5];
+y_tick = [0,1,2,3];
+
+ylim(y_lim)
+yticks(y_tick);
 xlabel('Time, s')
 ylabel('Relative WRBM')
 grid on
@@ -108,7 +118,7 @@ box on
 legend([h_ol,h{:}],'Open loop',Legend{:},'interpreter','latex','location','northwest')
 
 
-%% Plot 2
+%% Plot load factor over time
 ds = 2;
 h = {};
 Legend = {};
@@ -120,6 +130,8 @@ for i = 1:length(T_delay)
     Legend{i} = ['$T=',num2str(T_delay(i)),'$\,s'];
 end
 
+ylim(y_lim)
+yticks(y_tick);
 xlabel('Time, s')
 ylabel('Load factor')
 grid on
@@ -138,9 +150,7 @@ else
     ax2.YLim(1) = ax1.YLim(1);
 end
 
-% legend([h_ol,h{:}],'Open loop',Legend{:},'interpreter','latex','location','northwest')
-
-%% Plot 3
+%% Plot relative 1st bending mode deflection over time
 ds = 5;
 h = {};
 Legend = {};
@@ -152,6 +162,8 @@ for i = 1:length(T_delay)
     Legend{i} = ['$T=',num2str(T_delay(i)),'$\,s'];
 end
 
+ylim(y_lim)
+yticks(y_tick);
 xlabel('Time, s')
 ylabel('Relative mode deflection')
 grid on
@@ -170,9 +182,7 @@ else
     ax2.YLim(1) = ax1.YLim(1);
 end
 
-% legend([h_ol,h{:}],'Open loop',Legend{:},'interpreter','latex','location','northwest')
-
-%% Plot 4
+%% Plot wing tip deflection over time
 ds = 5;
 defl0 = 0;
 defl_ol = -aircraft.wing_main.aeroelasticity.T_cs(3,:)*simout_open_loop.eta.Data';
@@ -187,22 +197,20 @@ for i = 1:length(T_delay)
     Legend{i} = ['$T=',num2str(T_delay(i)),'$\,s'];
 end
 
+ylim(y_lim)
+yticks(y_tick);
 xlabel('Time, s')
 ylabel('Relative tip deflection')
 grid on
 box on
 
-% legend([h_ol,h{:}],'Open loop',Legend{:},'interpreter','latex','location','northwest')
-
-%% Plot 5
+%% Create 2D color map of the spacial vertical wind field
 ds = 8;
 xmax = 2800;
 fig5 = figure;
 ax1 = gca;
 [X,Y] = meshgrid( 0:ds:xmax, aircraft.wing_main.geometry.ctrl_pt.pos(2,:) );
-% surf(X,Y,wind2D(1:ds:xmax+1,1:40)'+50,'EdgeAlpha',0)
 imagesc(0:ds:xmax,aircraft.wing_main.geometry.ctrl_pt.pos(2,:),wind2D(1:ds:xmax+1,1:40)')
-% view(0,90)
 xticks(0:500:xmax);
 xlim([min(min(X)),max(max(X))])
 ylim([min(min(Y)),max(max(Y))])
@@ -212,10 +220,8 @@ ylabel('Lateral position, m')
 c = colorbar('NorthOutside');
 c.Label.String = 'Wind velocity, m/s';
 c.Ticks = c.Ticks + 50;
-% set(ax1,'Layer','Top')
-% grid off
 
-%% Plot 6
+%% Plot vertical wind speed at aircraft center over time
 ds = 2;
 tmax = 12;
 fig6 = figure;
@@ -225,10 +231,9 @@ grid on
 xticks(0:500:xmax);
 xlabel('Longitudinal position, m')
 ylabel('Wind velocity, m/s')
-% xticks(0:500:xmax);
 xlim([0,xmax])
 
-%% Plot 7
+%% Plot maximum relative WRBM over control system time delay
 fig7=figure;
 hold on
 WRBM_max = [];
@@ -247,7 +252,7 @@ grid on
 box on
 legend('With rate limit','Without rate limit','location','southeast')
 
-%% Plot 8
+%% Plot maximum load factor over control system time delay
 fig8=figure;
 hold on
 acc_max = [];
@@ -353,3 +358,4 @@ if is_tikz_export_desired
     filename = exportFilename('turbulence_acc_rate.tex');
     matlab2tikz(filename,'width',tikzwidth,'height',tikzheight,'extraCode',tikzfontsize,'extraAxisOptions',extra_axis_options);
 end
+

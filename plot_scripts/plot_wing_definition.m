@@ -1,9 +1,13 @@
-% add folders to path
-addPath();
+is_tigl_installed = addPath();
 
 is_tikz_export_desired = false;
 
-[aircraft,~] = aircraftSe2aCreate( );
+if is_tigl_installed
+    [aircraft,~] = aircraftSe2aCreate( );
+else
+    load('data/aircraft_structure.mat');
+    wingSetCustomActuatorPath(aircraft.wing_main);
+end
 
 figure
 

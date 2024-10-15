@@ -1,6 +1,6 @@
 clear all;
 
-addPath();
+is_tigl_installed = addPath();
 
 is_tikz_export_desired = false;
 
@@ -12,7 +12,12 @@ fp_spec.EAS         = 177; % m/s
 
 [Ma,~] = altEas2MaTas( fp_spec.Altitude, fp_spec.EAS );
 
-[aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'Mach', Ma, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true );
+if is_tigl_installed
+    [aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'Mach', Ma, 'pchfilename', 'na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch', 'AdjustJigTwist', true );
+else
+    load('data/aircraft_structure.mat');
+    wingSetCustomActuatorPath(aircraft.wing_main);
+end
 
 %% Init controller
 gla_indi = glaIndiCreate( aircraft, fp_spec, ...
@@ -94,8 +99,6 @@ else
     is_paper = varargin{1};
 end
 
-% B = indiCeLadVar(gla_indi.ce,0.66,241,0.77);
-
 atm = isAtmosphere(h);
 V = Ma * atm.a;
 B = indiCeLadVar(gla_indi.ce,atm.rho,V,Ma);
@@ -116,8 +119,6 @@ nu(1) = 1;
 Delta_u = caIndiWls(gla_indi.ca,B,nu,zeros(1,38)');
 h1=plot(y(1:end/2),Delta_u(1:end/2),'Color',h(1).Color);
 plot(y(end/2+1:end),Delta_u(end/2+1:end),'Color',h(1).Color)
-
-% gla_indi.ca.W_u = diag( 1./([flip(1:19),1:19 ]) );
 
 gla_indi.ca.W_v(2,2) = 1;
 Delta_u = caIndiWls(gla_indi.ca,B,nu,zeros(1,38)');
@@ -164,8 +165,6 @@ else
     is_paper = varargin{1};
 end
 
-% B = indiCeLadVar(gla_indi.ce,0.66,241,0.77);
-
 atm = isAtmosphere(h);
 V = Ma * atm.a;
 B = indiCeLadVar(gla_indi.ce,atm.rho,V,Ma);
@@ -187,8 +186,6 @@ h1=plot(y(1:end/2),Delta_u(1:end/2),'Color',h(1).Color);
 hold on
 grid on
 plot(y(end/2+1:end),Delta_u(end/2+1:end),'Color',h(1).Color)
-
-% gla_indi.ca.W_u = diag( 1./([flip(1:19),1:19 ]) );
 
 gla_indi.ca.W_v(1,1) = 1;
 Delta_u = caIndiWls(gla_indi.ca,B,nu,zeros(1,38)');
@@ -225,3 +222,4 @@ ylabel('Actuator command increment')
 legend([h1,h2,h3,h4],'$\ddot{\eta}_1$ only','$a_z=0$','$\ddot{\eta}_7=0$','$\ddot{\eta}_7=a_z=0$','location','north','interpreter','latex')
 
 end
+

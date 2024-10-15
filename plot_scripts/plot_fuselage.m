@@ -1,8 +1,13 @@
 % add folders to path
-addPath();
+is_tigl_installed = addPath();
 
 %% Init aircraft
-[aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', false,'Mach', 0.77, 'Alt',6000, 'pchfilename','na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch','AdjustJigTwist',true );
+if is_tigl_installed
+    [aircraft,structure] = aircraftSe2aCreate( 'flexible', true, 'unsteady', true, 'stall', false,'Mach', 0.77, 'Alt',6000, 'pchfilename','na_Se2A-MR-Ref-v4-twist_GFEM_MTOAa_S103_DMIG.pch','AdjustJigTwist',true );
+else
+    load('data/aircraft_structure.mat');
+    wingSetCustomActuatorPath(aircraft.wing_main);
+end
 
 fuselage = aircraft.fuselage;
 
