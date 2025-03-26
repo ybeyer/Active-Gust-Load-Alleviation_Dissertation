@@ -8,7 +8,7 @@ runAll();
 function runAll()
     listing = dir;
     num_files = length(listing);
-    for i = 19:num_files
+    for i = 1:num_files
         filename = listing(i).name;
         if contains(filename,'plot_')
             file_str = activateTikz(filename);

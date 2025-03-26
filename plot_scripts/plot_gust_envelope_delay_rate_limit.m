@@ -62,7 +62,7 @@ T_delay = sort([T_delay_1,T_delay_1(2:end-1)+diff(T_delay_1(2:end)/2)],'descend'
 simout  = {};
 simout_nrl = {};
 
-% -1: az&eta1&w, 0: az&eta1, 1: eta1, 2: eta1&eta7, 3: eta1&eta2&lightaz, 4: eta1&eta7&w 5: az 6: az&eta1&eta7
+% -1: az&eta1&w, 0: az&eta1, 1: eta1, 2: eta1&eta7, 3: eta1&eta2&lightaz, 4: eta1&eta7&w, 5: az, 6: az&eta1&eta7
 cntrl_var = 2;
 
 for i = 1:length(T_delay)
@@ -98,6 +98,7 @@ for i = 1:length(T_delay)
             gla_indi.ca.W_v(2,2) = 1;
             gla_indi.ca.W_v(3,3) = 1e-9;
             gla_indi.ca.gamma = 1e7;
+            gla_indi.ca.W_u = eye(length(gla_indi.ca.W_u));
         end
         if cntrl_var == 2
             gla_indi.ca.W_v(1,1) = 1e-9;
@@ -257,7 +258,8 @@ if is_tikz_export_desired
     tikzheight = '\figureheight';
     tikzfontsize = '\tikzstyle{every node}=[font=\tikzfontsize]';
     extra_axis_options = {'ylabel style={font=\tikzfontsize}','xlabel style={font=\tikzfontsize}','ticklabel style={/pgf/number format/fixed}','legend style={font=\tikzfontsize}','legend columns=2'};
-    matlab2tikz(['tex/gust_envelope_',num2str(cntrl_var),'.tex'],'width',tikzwidth,'height',tikzheight,'extraCode',tikzfontsize,'extraAxisOptions',extra_axis_options);
+    filename = exportFilename(['gust_envelope_',num2str(cntrl_var),'.tex']);
+    matlab2tikz(filename,'width',tikzwidth,'height',tikzheight,'extraCode',tikzfontsize,'extraAxisOptions',extra_axis_options);
 end
 
 %% Plot maximum relative bending moment over span
@@ -290,7 +292,8 @@ if is_tikz_export_desired
     tikzheight = '\figureheight';
     tikzfontsize = '\tikzstyle{every node}=[font=\tikzfontsize]';
     extra_axis_options = {'ylabel style={font=\tikzfontsize}','xlabel style={font=\tikzfontsize}','ticklabel style={/pgf/number format/fixed}','legend style={font=\tikzfontsize}','legend columns=2'};
-    matlab2tikz(['tex/gust_envelope_rel_',num2str(cntrl_var),'.tex'],'width',tikzwidth,'height',tikzheight,'extraCode',tikzfontsize,'extraAxisOptions',extra_axis_options);
+    filename = exportFilename(['gust_envelope_rel_',num2str(cntrl_var),'.tex']);
+    matlab2tikz(filename,'width',tikzwidth,'height',tikzheight,'extraCode',tikzfontsize,'extraAxisOptions',extra_axis_options);
 end
 
 %% Post-process simulations
@@ -415,7 +418,6 @@ ylabel('Max. load factor')
 ylim([1,3.2])
 grid on
 box on
-% legend('With rate limit','Without rate limit','location','southeast')
 
 %% Export figure to TikZ
 if is_tikz_export_desired

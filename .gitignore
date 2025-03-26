@@ -5,4 +5,4 @@
 *.slxc
 *slprj
 
-tex/
+results_export/*
