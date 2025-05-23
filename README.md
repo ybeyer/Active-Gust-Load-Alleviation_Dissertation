@@ -12,7 +12,7 @@ It provides a simulation environment for active gust load alleviation for an aer
   </a>
 </div>
 
-[1] Y. Beyer, "Active Gust Load Alleviation with Boosted Incremental Nonlinear Dynamic Inversion: Modeling, Control, and Simulation of a Flexible Airplane", Ph.D. dissertation, TU Braunschweig, 2024.
+[1] Y. Beyer, "Active Gust Load Alleviation with Boosted Incremental Nonlinear Dynamic Inversion: Modeling, Control, and Simulation of a Flexible Airplane", Ph.D. dissertation, TU Braunschweig, Germany, 2024, doi: [10.24355/dbbs.084-202505080604-0](https://doi.org/10.24355/dbbs.084-202505080604-0).
 
 
 
